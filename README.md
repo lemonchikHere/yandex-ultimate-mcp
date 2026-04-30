@@ -2,11 +2,11 @@
 
 > 🇷🇺 **Основной язык — русский.** English quick start is below.
 
-![Yandex Ultimate MCP hero](assets/yandex-ultimate-cover.png)
+![Yandex Ultimate MCP hero](assets/yandex-ultimate-hero.svg)
 
-<details><summary>SVG fallback</summary>
+<details><summary>Generated PNG cover</summary>
 
-![Yandex Ultimate MCP SVG hero](assets/yandex-ultimate-hero.svg)
+![Yandex Ultimate MCP generated cover](assets/yandex-ultimate-cover.png)
 
 </details>
 
