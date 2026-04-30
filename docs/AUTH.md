@@ -14,16 +14,17 @@ Wizard теперь browser-assisted:
 
 1. Поднимает локальный callback server.
 2. Сам открывает OAuth app page.
-3. Ты добавляешь Redirect URI, который показан в терминале, например:
+3. Ты можешь добавить Redirect URI, который показан в терминале, например:
 
 ```text
 http://127.0.0.1:17893/callback
 ```
 
 4. Ты вставляешь `ClientID`.
-5. Wizard сам открывает authorization page.
-6. Browser возвращается на localhost, а wizard ловит `access_token` автоматически.
-7. Если callback не сработал, остается ручной fallback: можно вставить весь URL `https://...#access_token=...`.
+5. Wizard спрашивает: добавлен ли локальный Redirect URI в OAuth app?
+   - если **да** — открывает authorize URL с `redirect_uri=http://127.0.0.1:17893/callback` и ловит token сам;
+   - если **нет** или OAuth app уже использует другой callback — открывает authorize URL **без** `redirect_uri`, а ты вставляешь итоговый callback URL из адресной строки.
+6. Если видишь `400 redirect_uri не совпадает`, значит в app не добавлен localhost callback: перезапусти wizard и ответь **нет** на вопрос про Redirect URI, либо добавь точный URI в настройках OAuth app.
 
 Token раскладывается по `YANDEX_TOKEN`, `YANDEX_METRIKA_TOKEN`, `YANDEX_DIRECT_TOKEN`, `YANDEX_WEBMASTER_OAUTH_TOKEN`, `YANDEX_TRACKER_TOKEN`.
 
@@ -52,7 +53,7 @@ npm run doctor
 1. Откройте Yandex OAuth app page: https://oauth.yandex.ru/client/new
 2. Создайте приложение.
 3. Выберите permissions/scopes нужных сервисов.
-4. Получите token по URL:
+4. Получите token по URL, который wizard откроет сам:
 
 ```text
 https://oauth.yandex.ru/authorize?response_type=token&client_id=YOUR_CLIENT_ID
@@ -141,3 +142,7 @@ YANDEX_MAPS_STATIC_API_KEY=...
 - Open `https://oauth.yandex.ru/authorize?response_type=token&client_id=YOUR_CLIENT_ID` to get an OAuth token.
 - Put service-specific tokens/API keys into `.env.local` or your MCP client config.
 - Run `yandex-ultimate-mcp doctor` to see which modules are enabled.
+
+## Ошибка 400: redirect_uri не совпадает
+
+Это значит, что authorize URL содержит `redirect_uri`, которого нет в Callback URL приложения. Решение: ответь **нет** на вопрос wizard про localhost Redirect URI или добавь показанный URI в OAuth app.

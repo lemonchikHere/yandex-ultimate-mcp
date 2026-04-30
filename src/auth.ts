@@ -20,8 +20,8 @@ export const AUTH_GUIDE_RU = `
 2. Wizard сам откроет создание OAuth app.
 3. В OAuth app добавь Redirect URI, который покажет wizard: http://127.0.0.1:17893/callback
 4. Включи permissions для Metrika, Direct, Webmaster, Tracker.
-5. Вставь ClientID — wizard сам откроет авторизацию.
-6. После логина token поймается локально и запишется в .env.local.
+5. Вставь ClientID — wizard спросит, добавлен ли localhost Redirect URI.
+6. Если да — token поймается локально. Если нет — wizard откроет обычную авторизацию и попросит вставить callback URL.
 
 Важно:
 - YANDEX_CLIENT_LOGIN — это НЕ токен. Это логин клиента/аккаунта в Yandex Direct.
@@ -38,8 +38,8 @@ Smooth path:
 2. The wizard opens Yandex OAuth app creation.
 3. Add the local Redirect URI shown by the wizard, e.g. http://127.0.0.1:17893/callback
 4. Enable Metrika, Direct, Webmaster and Tracker permissions.
-5. Paste ClientID; the wizard opens the authorization page.
-6. The local callback captures access_token and writes .env.local.
+5. Paste ClientID; the wizard asks whether the localhost Redirect URI was added.
+6. If yes, the local callback captures access_token. If not, the wizard opens regular authorization and asks you to paste the callback URL.
 
 Note: YANDEX_CLIENT_LOGIN is not a token; it is a Yandex Direct client/account login.
 `;
@@ -80,27 +80,37 @@ export async function runAuthWizard(): Promise<void> {
     const entries: Record<string, string> = {};
 
     if (clientId) {
-      const authUrl = makeOAuthUrl(clientId, capture.redirectUri);
-      await openStep("2/5 Авторизация", authUrl, [
-        "Wizard уже ждет callback локально.",
-        "После разрешения доступа browser вернется на localhost, token поймается сам.",
-        "Если Yandex ругается на redirect_uri — добавь Redirect URI из шага 1 в OAuth app."
-      ]);
-      const token = await capture.waitForToken(120_000);
-      if (token) {
-        await saveOAuthToken(rl, entries, token);
+      const useLocalRedirect = await askYesNo(
+        rl,
+        `🧲 Ты ДОБАВИЛ в OAuth app ровно этот Redirect URI: ${capture.redirectUri}?`,
+        false
+      );
+      if (useLocalRedirect) {
+        const authUrl = makeOAuthUrl(clientId, capture.redirectUri);
+        await openStep("2/5 Авторизация с auto-capture", authUrl, [
+          "Wizard уже ждет callback локально.",
+          "После разрешения доступа browser вернется на localhost, token поймается сам.",
+          "Если Yandex ругается на redirect_uri — ответь 'нет' на предыдущий вопрос и используй fallback."
+        ]);
+        const token = await capture.waitForToken(120_000);
+        if (token) {
+          await saveOAuthToken(rl, entries, token);
+        } else {
+          console.log("⏳ Автопоимка не сработала за 2 минуты — включаю ручной fallback.");
+          await promptManualOAuth(rl, entries);
+        }
       } else {
-        console.log("⏳ Автопоимка не сработала за 2 минуты — включаю ручной fallback.");
-        const rawOAuth = (await ask(rl, "📥 Вставь callback URL или чистый access_token", "URL вида https://...#access_token=... тоже подходит")).trim();
-        const manualToken = extractAccessToken(rawOAuth);
-        if (manualToken) await saveOAuthToken(rl, entries, manualToken);
-        else if (rawOAuth) console.log("⚠️  Не нашел access_token. OAuth token не сохранен.");
+        const authUrl = makeOAuthUrl(clientId);
+        await openStep("2/5 Авторизация без redirect override", authUrl, [
+          "Так безопаснее для уже созданных apps: Яндекс использует Callback URL из настроек приложения.",
+          "После логина скопируй весь URL из адресной строки и вставь в терминал.",
+          "Это фиксит ошибку 400: redirect_uri не совпадает с Callback URL."
+        ]);
+        await promptManualOAuth(rl, entries);
       }
     } else {
       console.log("↪️  ClientID пропущен — OAuth token можно вставить вручную.");
-      const rawOAuth = (await ask(rl, "📥 OAuth callback URL или чистый access_token", "можно вставить целиком URL с #access_token=...")).trim();
-      const token = extractAccessToken(rawOAuth);
-      if (token) await saveOAuthToken(rl, entries, token);
+      await promptManualOAuth(rl, entries);
     }
 
     await openStep("3/5 Direct login", DIRECT_API_URL, [
@@ -164,6 +174,17 @@ async function saveOAuthToken(rl: ReturnType<typeof createInterface>, entries: R
   }
 }
 
+async function promptManualOAuth(rl: ReturnType<typeof createInterface>, entries: Record<string, string>): Promise<void> {
+  const rawOAuth = (await ask(
+    rl,
+    "📥 Вставь callback URL или чистый access_token",
+    "подходит полный URL вида https://...#access_token=...; wizard сам вытащит token"
+  )).trim();
+  const token = extractAccessToken(rawOAuth);
+  if (token) await saveOAuthToken(rl, entries, token);
+  else if (rawOAuth) console.log("⚠️  Не нашел access_token. OAuth token не сохранен.");
+}
+
 export function extractAccessToken(value: string): string | undefined {
   const raw = value.trim();
   if (!raw) return undefined;
@@ -187,11 +208,11 @@ export function extractAccessToken(value: string): string | undefined {
   return undefined;
 }
 
-export function makeOAuthUrl(clientId: string, redirectUri: string): string {
+export function makeOAuthUrl(clientId: string, redirectUri?: string): string {
   const url = new URL("https://oauth.yandex.ru/authorize");
   url.searchParams.set("response_type", "token");
   url.searchParams.set("client_id", clientId);
-  url.searchParams.set("redirect_uri", redirectUri);
+  if (redirectUri) url.searchParams.set("redirect_uri", redirectUri);
   return url.toString();
 }
 

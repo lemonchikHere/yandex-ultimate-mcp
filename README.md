@@ -32,8 +32,10 @@ Wizard теперь работает как маршрут, а не как “д
    - redirect/callback URI: `http://127.0.0.1:17893/callback`
    - permissions: Metrika, Direct, Webmaster, Tracker — всё что доступно.
 4. Ты вставляешь `ClientID` в терминал.
-5. Wizard сам открывает страницу авторизации.
-6. После логина browser возвращается на localhost, wizard ловит `access_token` без ручного копирования.
+5. Wizard спрашивает: добавлен ли локальный Redirect URI в OAuth app?
+   - если **да** — ловит `access_token` сам через localhost;
+   - если **нет** или app уже использует другой callback — открывает авторизацию без `redirect_uri`, а ты вставляешь итоговый callback URL из адресной строки.
+6. Если видишь `400 redirect_uri не совпадает`, перезапусти wizard и ответь **нет** на вопрос про localhost Redirect URI, либо добавь точный URI в OAuth app.
 7. Token раскладывается в:
    - `YANDEX_TOKEN`
    - `YANDEX_METRIKA_TOKEN`
