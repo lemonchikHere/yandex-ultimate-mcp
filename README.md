@@ -23,17 +23,24 @@ npm run doctor
 npm run start
 ```
 
-Что делает wizard:
+Wizard теперь работает как маршрут, а не как “держи ссылки”:
 
-1. Просит `YANDEX_CLIENT_ID` от OAuth app.
-2. Дает ссылку `https://oauth.yandex.ru/authorize?...`.
-3. Ты логинишься и вставляешь **весь callback URL** с `#access_token=...`.
-4. Wizard сам вытаскивает token и раскладывает его в:
+1. Поднимает локальный callback: `http://127.0.0.1:17893/callback`.
+2. Сам открывает страницу создания Yandex OAuth app.
+3. Показывает, что вставить в OAuth app:
+   - name: `Yandex Ultimate MCP`
+   - redirect/callback URI: `http://127.0.0.1:17893/callback`
+   - permissions: Metrika, Direct, Webmaster, Tracker — всё что доступно.
+4. Ты вставляешь `ClientID` в терминал.
+5. Wizard сам открывает страницу авторизации.
+6. После логина browser возвращается на localhost, wizard ловит `access_token` без ручного копирования.
+7. Token раскладывается в:
    - `YANDEX_TOKEN`
    - `YANDEX_METRIKA_TOKEN`
    - `YANDEX_DIRECT_TOKEN`
    - `YANDEX_WEBMASTER_OAUTH_TOKEN`
    - `YANDEX_TRACKER_TOKEN`
+8. Потом wizard сам открывает/подсказывает страницы для Direct, Cloud/Search и Maps keys.
 
 Важно: `YANDEX_CLIENT_LOGIN` — это **не токен**. Это логин клиента/аккаунта в Yandex Direct. Если Direct не нужен — пропусти.
 
@@ -47,6 +54,12 @@ Webmaster обычно использует тот же OAuth token. Если в
 - `YANDEX_MAPS_API_KEY` — Maps.
 
 > ⚠️ Если токен случайно попал в чат, логи или скриншот — лучше отозвать его и выпустить новый.
+
+Если auto-open браузера не нужен:
+
+```bash
+ULTIMATE_NO_OPEN=1 npm run auth
+```
 
 ## Что внутри
 
@@ -137,7 +150,7 @@ yandex-ultimate auth
 npx yandex-ultimate-mcp@latest auth
 ```
 
-Wizard принимает полный callback URL, сам вытаскивает `access_token` и пишет `.env.local`. Подробности: [`docs/AUTH.md`](docs/AUTH.md).
+Wizard сам открывает страницы, ловит OAuth callback на localhost, вытаскивает `access_token` и пишет `.env.local`. Подробности: [`docs/AUTH.md`](docs/AUTH.md).
 
 ## Управление модулями
 

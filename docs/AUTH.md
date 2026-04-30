@@ -10,17 +10,32 @@ npm run doctor
 npm run start
 ```
 
-Wizard можно кормить не чистым токеном, а всем callback URL:
+Wizard теперь browser-assisted:
+
+1. Поднимает локальный callback server.
+2. Сам открывает OAuth app page.
+3. Ты добавляешь Redirect URI, который показан в терминале, например:
 
 ```text
-https://your-app/callback#access_token=...&token_type=bearer&expires_in=...
+http://127.0.0.1:17893/callback
 ```
 
-Он сам достанет `access_token` и предложит разложить его по `YANDEX_TOKEN`, `YANDEX_METRIKA_TOKEN`, `YANDEX_DIRECT_TOKEN`, `YANDEX_WEBMASTER_OAUTH_TOKEN`, `YANDEX_TRACKER_TOKEN`.
+4. Ты вставляешь `ClientID`.
+5. Wizard сам открывает authorization page.
+6. Browser возвращается на localhost, а wizard ловит `access_token` автоматически.
+7. Если callback не сработал, остается ручной fallback: можно вставить весь URL `https://...#access_token=...`.
+
+Token раскладывается по `YANDEX_TOKEN`, `YANDEX_METRIKA_TOKEN`, `YANDEX_DIRECT_TOKEN`, `YANDEX_WEBMASTER_OAUTH_TOKEN`, `YANDEX_TRACKER_TOKEN`.
 
 `YANDEX_CLIENT_LOGIN` — это **не токен**, а логин клиента/аккаунта в Yandex Direct.
 
 > ⚠️ Если token утек в чат/логи — отзови его и выпусти новый.
+
+Без открытия браузера:
+
+```bash
+ULTIMATE_NO_OPEN=1 npm run auth
+```
 
 ## Главная идея
 

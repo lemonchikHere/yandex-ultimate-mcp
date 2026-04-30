@@ -1,35 +1,45 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer, type Server } from "node:http";
+import { platform } from "node:os";
+import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
 const ENV_FILE = ".env.local";
+const DEFAULT_AUTH_PORT = 17893;
+const OAUTH_APP_URL = "https://oauth.yandex.ru/client/new";
+const DIRECT_API_URL = "https://yandex.ru/dev/direct/doc/en/concepts/register";
+const CLOUD_CONSOLE_URL = "https://console.yandex.cloud/";
+const MAPS_KEYS_URL = "https://developer.tech.yandex.ru/services/";
 
 export const AUTH_GUIDE_RU = `
 # 🚀 Автовход и получение ключей/токенов для Yandex Ultimate MCP
 
-Самый быстрый путь:
-1. Создай OAuth-приложение: https://oauth.yandex.ru/client/new
-2. Включи доступы для API: Metrika, Direct, Webmaster, Tracker. Для Cloud/Search/Maps чаще нужны отдельные ключи.
-3. Скопируй ClientID и открой:
-   https://oauth.yandex.ru/authorize?response_type=token&client_id=YOUR_CLIENT_ID
-4. После логина вставь в wizard ВЕСЬ callback URL вида:
-   https://.../callback#access_token=...&token_type=bearer&expires_in=...
-5. Wizard сам вытащит access_token и разложит его по YANDEX_TOKEN/YANDEX_METRIKA_TOKEN/YANDEX_DIRECT_TOKEN/etc.
+Красивый путь без копания в ссылках:
+1. Запусти: npm run auth
+2. Wizard сам откроет создание OAuth app.
+3. В OAuth app добавь Redirect URI, который покажет wizard: http://127.0.0.1:17893/callback
+4. Включи permissions для Metrika, Direct, Webmaster, Tracker.
+5. Вставь ClientID — wizard сам откроет авторизацию.
+6. После логина token поймается локально и запишется в .env.local.
 
 Важно:
 - YANDEX_CLIENT_LOGIN — это НЕ токен. Это логин клиента/аккаунта в Yandex Direct.
+- Webmaster обычно использует тот же OAuth access_token.
+- Cloud/Search/Maps чаще требуют отдельные ключи; wizard открывает нужные кабинеты и ведет по шагам.
 - Если токен случайно утек в чат/логи, лучше отозвать его и выпустить новый.
 `;
 
 export const AUTH_GUIDE_EN = `
 # 🚀 Auto login and token/key setup for Yandex Ultimate MCP
 
-Fast path:
-1. Create a Yandex OAuth app: https://oauth.yandex.ru/client/new
-2. Enable API permissions for Metrika, Direct, Webmaster and Tracker. Cloud/Search/Maps often need separate keys.
-3. Copy ClientID and open:
-   https://oauth.yandex.ru/authorize?response_type=token&client_id=YOUR_CLIENT_ID
-4. Paste the full callback URL into the wizard. It will extract access_token automatically.
+Smooth path:
+1. Run: npm run auth
+2. The wizard opens Yandex OAuth app creation.
+3. Add the local Redirect URI shown by the wizard, e.g. http://127.0.0.1:17893/callback
+4. Enable Metrika, Direct, Webmaster and Tracker permissions.
+5. Paste ClientID; the wizard opens the authorization page.
+6. The local callback captures access_token and writes .env.local.
 
 Note: YANDEX_CLIENT_LOGIN is not a token; it is a Yandex Direct client/account login.
 `;
@@ -44,7 +54,7 @@ function serviceHints(service?: string): string {
     metrika: "Env: YANDEX_METRIKA_TOKEN or universal YANDEX_TOKEN.",
     direct: "Env: YANDEX_DIRECT_TOKEN or YANDEX_TOKEN. YANDEX_CLIENT_LOGIN is the Direct client/account login, not a token.",
     wordstat: "Wordstat is usually covered by Direct credentials in @stegyan/yandex-mcp.",
-    webmaster: "Env: YANDEX_WEBMASTER_OAUTH_TOKEN; optional YANDEX_WEBMASTER_HOST_URL.",
+    webmaster: "Env: YANDEX_WEBMASTER_OAUTH_TOKEN; usually the same OAuth token as YANDEX_TOKEN.",
     tracker: "Env: YANDEX_TRACKER_TOKEN and YANDEX_TRACKER_ORG_ID.",
     cloud: "Env: YC_OAUTH_TOKEN/YC_FOLDER_ID or YANDEX_CLOUD_TOKEN/YANDEX_FOLDER_ID.",
     search: "Env: YANDEX_SEARCH_API_KEY and YANDEX_SEARCH_FOLDER_ID.",
@@ -55,43 +65,71 @@ function serviceHints(service?: string): string {
 }
 
 export async function runAuthWizard(): Promise<void> {
-  printHero();
+  const capture = await startOAuthCapture();
+  printHero(capture.redirectUri);
+
   const rl = createInterface({ input, output });
   try {
-    const clientId = (await ask(rl, "🔑 Yandex OAuth ClientID", "Enter пропустить")).trim();
-    if (clientId) {
-      console.log(box("🌐 Открой эту ссылку, залогинься и скопируй весь callback URL", [
-        `https://oauth.yandex.ru/authorize?response_type=token&client_id=${encodeURIComponent(clientId)}`
-      ]));
-    }
+    await openStep("1/5 Создай OAuth app", OAUTH_APP_URL, [
+      `Название: Yandex Ultimate MCP`,
+      `Redirect URI / Callback URL: ${capture.redirectUri}`,
+      "Permissions: Metrika + Direct + Webmaster + Tracker, что доступно в твоем аккаунте."
+    ]);
 
+    const clientId = (await ask(rl, "🔑 Вставь Yandex OAuth ClientID", "после создания app скопируй ClientID сюда")).trim();
     const entries: Record<string, string> = {};
-    const rawOAuth = (await ask(rl, "📥 OAuth callback URL или чистый access_token", "можно вставить целиком URL с #access_token=...")).trim();
-    const token = extractAccessToken(rawOAuth);
-    if (token) {
-      const spread = await askYesNo(rl, "✨ Разложить этот OAuth token по YANDEX_TOKEN/METRIKA/DIRECT/WEBMASTER/TRACKER?", true);
-      if (spread) {
-        entries.YANDEX_TOKEN = token;
-        entries.YANDEX_METRIKA_TOKEN = token;
-        entries.YANDEX_DIRECT_TOKEN = token;
-        entries.YANDEX_WEBMASTER_OAUTH_TOKEN = token;
-        entries.YANDEX_TRACKER_TOKEN = token;
+
+    if (clientId) {
+      const authUrl = makeOAuthUrl(clientId, capture.redirectUri);
+      await openStep("2/5 Авторизация", authUrl, [
+        "Wizard уже ждет callback локально.",
+        "После разрешения доступа browser вернется на localhost, token поймается сам.",
+        "Если Yandex ругается на redirect_uri — добавь Redirect URI из шага 1 в OAuth app."
+      ]);
+      const token = await capture.waitForToken(120_000);
+      if (token) {
+        await saveOAuthToken(rl, entries, token);
       } else {
-        entries.YANDEX_TOKEN = token;
+        console.log("⏳ Автопоимка не сработала за 2 минуты — включаю ручной fallback.");
+        const rawOAuth = (await ask(rl, "📥 Вставь callback URL или чистый access_token", "URL вида https://...#access_token=... тоже подходит")).trim();
+        const manualToken = extractAccessToken(rawOAuth);
+        if (manualToken) await saveOAuthToken(rl, entries, manualToken);
+        else if (rawOAuth) console.log("⚠️  Не нашел access_token. OAuth token не сохранен.");
       }
-      console.log(`✅ access_token найден: ${redact(token)}`);
-    } else if (rawOAuth) {
-      console.log("⚠️  Не нашел access_token. Значение не сохранено — вставь URL с #access_token=... или сам токен.");
+    } else {
+      console.log("↪️  ClientID пропущен — OAuth token можно вставить вручную.");
+      const rawOAuth = (await ask(rl, "📥 OAuth callback URL или чистый access_token", "можно вставить целиком URL с #access_token=...")).trim();
+      const token = extractAccessToken(rawOAuth);
+      if (token) await saveOAuthToken(rl, entries, token);
     }
 
+    await openStep("3/5 Direct login", DIRECT_API_URL, [
+      "Если Direct/Wordstat не нужен — просто Enter.",
+      "YANDEX_CLIENT_LOGIN — логин клиента/аккаунта Direct, НЕ token."
+    ]);
     await askAndSave(rl, entries, "🏷️  YANDEX_CLIENT_LOGIN", "логин клиента/аккаунта Direct, НЕ токен", "YANDEX_CLIENT_LOGIN");
+
+    console.log(box("4/5 Tracker / Cloud / Search", [
+      "Tracker просит org id.",
+      "Cloud/Search обычно живут в Yandex Cloud console.",
+      "Если не используешь — Enter на полях ниже."
+    ]));
+    await openMaybe("☁️  Открываю Yandex Cloud console", CLOUD_CONSOLE_URL);
     await askAndSave(rl, entries, "🏢 YANDEX_TRACKER_ORG_ID", "org/cloud id для Tracker", "YANDEX_TRACKER_ORG_ID");
     await askAndSave(rl, entries, "☁️  YC_OAUTH_TOKEN", "Cloud OAuth token, если отличается от общего", "YC_OAUTH_TOKEN");
     await askAndSave(rl, entries, "📁 YC_FOLDER_ID", "folder id для Cloud/Search", "YC_FOLDER_ID");
     await askAndSave(rl, entries, "🔎 YANDEX_SEARCH_API_KEY", "API key service account для Search API", "YANDEX_SEARCH_API_KEY");
-    await askAndSave(rl, entries, "🔎 YANDEX_SEARCH_FOLDER_ID", "folder id для Search API", "YANDEX_SEARCH_FOLDER_ID");
+    await askAndSave(rl, entries, "🔎 YANDEX_SEARCH_FOLDER_ID", "folder id для Search API; можно Enter, если равен YC_FOLDER_ID", "YANDEX_SEARCH_FOLDER_ID");
+    if (!entries.YANDEX_SEARCH_FOLDER_ID && entries.YC_FOLDER_ID) entries.YANDEX_SEARCH_FOLDER_ID = entries.YC_FOLDER_ID;
+
+    console.log(box("5/5 Maps", [
+      "Для Maps нужен API key из developer.tech.yandex.ru.",
+      "Если Maps не нужен — Enter."
+    ]));
+    await openMaybe("🗺️  Открываю кабинет ключей Maps", MAPS_KEYS_URL);
     await askAndSave(rl, entries, "🗺️  YANDEX_MAPS_API_KEY", "ключ Maps/Geocoder/Routing", "YANDEX_MAPS_API_KEY");
-    await askAndSave(rl, entries, "🖼️  YANDEX_MAPS_STATIC_API_KEY", "опционально, static maps key", "YANDEX_MAPS_STATIC_API_KEY");
+    await askAndSave(rl, entries, "🖼️  YANDEX_MAPS_STATIC_API_KEY", "опционально, static maps key; Enter = использовать основной Maps key", "YANDEX_MAPS_STATIC_API_KEY");
+    if (!entries.YANDEX_MAPS_STATIC_API_KEY && entries.YANDEX_MAPS_API_KEY) entries.YANDEX_MAPS_STATIC_API_KEY = entries.YANDEX_MAPS_API_KEY;
 
     if (!Object.keys(entries).length) {
       console.log("😴 Ничего не ввели — .env.local не изменен.");
@@ -108,6 +146,21 @@ export async function runAuthWizard(): Promise<void> {
     for (const [key, value] of Object.entries(entries)) console.log(`  ${key}=${redact(value)}`);
   } finally {
     rl.close();
+    await capture.close();
+  }
+}
+
+async function saveOAuthToken(rl: ReturnType<typeof createInterface>, entries: Record<string, string>, token: string): Promise<void> {
+  console.log(`✅ access_token пойман: ${redact(token)}`);
+  const spread = await askYesNo(rl, "✨ Разложить этот OAuth token по YANDEX_TOKEN/METRIKA/DIRECT/WEBMASTER/TRACKER?", true);
+  if (spread) {
+    entries.YANDEX_TOKEN = token;
+    entries.YANDEX_METRIKA_TOKEN = token;
+    entries.YANDEX_DIRECT_TOKEN = token;
+    entries.YANDEX_WEBMASTER_OAUTH_TOKEN = token;
+    entries.YANDEX_TRACKER_TOKEN = token;
+  } else {
+    entries.YANDEX_TOKEN = token;
   }
 }
 
@@ -132,6 +185,143 @@ export function extractAccessToken(value: string): string | undefined {
 
   if (/^[A-Za-z0-9._~+/-]{20,}$/.test(raw) && !raw.includes(" ")) return raw;
   return undefined;
+}
+
+export function makeOAuthUrl(clientId: string, redirectUri: string): string {
+  const url = new URL("https://oauth.yandex.ru/authorize");
+  url.searchParams.set("response_type", "token");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  return url.toString();
+}
+
+export async function startOAuthCapture(): Promise<{
+  redirectUri: string;
+  waitForToken: (timeoutMs: number) => Promise<string | undefined>;
+  close: () => Promise<void>;
+}> {
+  let resolvedToken: string | undefined;
+  let resolveToken: ((token: string) => void) | undefined;
+  const tokenPromise = new Promise<string>((resolve) => {
+    resolveToken = resolve;
+  });
+
+  const server = createServer((req, res) => {
+    if (req.method === "GET" && req.url?.startsWith("/callback")) {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(callbackHtml());
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/capture") {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+      });
+      req.on("end", () => {
+        try {
+          const parsed = JSON.parse(body || "{}");
+          const token = typeof parsed.access_token === "string" ? parsed.access_token : undefined;
+          if (token) {
+            resolvedToken = token;
+            resolveToken?.(token);
+          }
+          res.writeHead(204);
+          res.end();
+        } catch {
+          res.writeHead(400);
+          res.end("bad json");
+        }
+      });
+      return;
+    }
+
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+  });
+
+  const port = await listen(server, Number(process.env.ULTIMATE_AUTH_PORT ?? DEFAULT_AUTH_PORT));
+  const redirectUri = `http://127.0.0.1:${port}/callback`;
+
+  return {
+    redirectUri,
+    waitForToken: async (timeoutMs: number) => {
+      if (resolvedToken) return resolvedToken;
+      return withTimeout(tokenPromise, timeoutMs).catch(() => undefined);
+    },
+    close: async () => closeServer(server)
+  };
+}
+
+function listen(server: Server, preferredPort: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tryListen = (port: number, attemptsLeft: number) => {
+      const onError = (error: NodeJS.ErrnoException) => {
+        server.off("error", onError);
+        server.off("listening", onListening);
+        if (error.code === "EADDRINUSE" && attemptsLeft > 0) tryListen(port + 1, attemptsLeft - 1);
+        else reject(error);
+      };
+      const onListening = () => {
+        server.off("error", onError);
+        const address = server.address();
+        resolve(typeof address === "object" && address ? address.port : port);
+      };
+      server.once("error", onError);
+      server.once("listening", onListening);
+      server.listen(port, "127.0.0.1");
+    };
+    tryListen(preferredPort, 20);
+  });
+}
+
+function closeServer(server: Server): Promise<void> {
+  return new Promise((resolve) => server.close(() => resolve()));
+}
+
+function callbackHtml(): string {
+  return `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Yandex Ultimate MCP OAuth</title>
+  <style>
+    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f5f1;color:#111;display:grid;place-items:center;min-height:100vh;margin:0}
+    .card{max-width:680px;background:white;border-radius:28px;padding:36px;box-shadow:0 24px 80px rgba(0,0,0,.12)}
+    h1{margin:0 0 12px;font-size:34px} p{font-size:18px;line-height:1.5}.ok{color:#18a058}.bad{color:#d93025} code{background:#f1f1f1;padding:2px 6px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>🚀 Yandex Ultimate MCP</h1>
+    <p id="status">Ловлю OAuth token…</p>
+    <p>Если всё ок, можно вернуться в терминал.</p>
+  </main>
+  <script>
+    const params = new URLSearchParams(location.hash.slice(1));
+    const token = params.get('access_token');
+    const status = document.getElementById('status');
+    if (!token) {
+      status.className = 'bad';
+      status.innerHTML = 'Не нашел <code>access_token</code> в URL. Вернись в терминал и вставь callback URL вручную.';
+    } else {
+      fetch('/capture', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ access_token: token }) })
+        .then(() => { status.className = 'ok'; status.textContent = '✅ Token пойман и отправлен wizard. Можно закрыть вкладку.'; })
+        .catch(() => { status.className = 'bad'; status.textContent = 'Не смог отправить token в wizard. Скопируй весь URL из адресной строки в терминал.'; });
+    }
+  </script>
+</body>
+</html>`;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 function writeEnv(entries: Record<string, string>): void {
@@ -164,19 +354,48 @@ async function ask(rl: ReturnType<typeof createInterface>, label: string, hint: 
   return rl.question(`${label}\n   ${dim(hint)}\n   › `);
 }
 
-function printHero(): void {
-  console.log(box("🚀 Yandex Ultimate MCP — Автовход и токены", [
-    "Вставляй полный callback URL — access_token вытащится сам.",
+async function openStep(title: string, url: string, lines: string[]): Promise<void> {
+  console.log(box(title, [...lines, `URL: ${url}`]));
+  await openMaybe(title, url);
+}
+
+async function openMaybe(label: string, url: string): Promise<void> {
+  if (process.env.ULTIMATE_NO_OPEN === "1") {
+    console.log(`↪️  ${label}: ${url}`);
+    return;
+  }
+  const ok = await openExternal(url);
+  console.log(ok ? `🌐 ${label}: открыл в браузере` : `🌐 ${label}: открой вручную ${url}`);
+}
+
+function openExternal(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const os = platform();
+    const command = os === "darwin" ? "open" : os === "win32" ? "cmd" : "xdg-open";
+    const args = os === "win32" ? ["/c", "start", "", url] : [url];
+    const child = spawn(command, args, { stdio: "ignore", detached: true });
+    child.on("error", () => resolve(false));
+    child.on("spawn", () => {
+      child.unref();
+      resolve(true);
+    });
+  });
+}
+
+function printHero(redirectUri: string): void {
+  console.log(box("🚀 Yandex Ultimate MCP — красивый auth wizard", [
+    "Без скрейпа логина/пароля: открываем официальные страницы и ловим redirect локально.",
+    `Redirect URI для OAuth app: ${redirectUri}`,
     "YANDEX_CLIENT_LOGIN — это логин Direct, а не токен.",
     "Секреты пишем в .env.local, в git они не попадут."
   ]));
 }
 
 function box(title: string, lines: string[]): string {
-  const width = Math.max(title.length, ...lines.map((line) => stripAnsi(line).length)) + 4;
+  const width = Math.max(stripAnsi(title).length, ...lines.map((line) => stripAnsi(line).length)) + 4;
   const top = `╭${"─".repeat(width)}╮`;
   const bottom = `╰${"─".repeat(width)}╯`;
-  const body = [`│ ${title}${" ".repeat(width - title.length - 1)}│`];
+  const body = [`│ ${title}${" ".repeat(width - stripAnsi(title).length - 1)}│`];
   for (const line of lines) body.push(`│ ${line}${" ".repeat(width - stripAnsi(line).length - 1)}│`);
   return [top, ...body, bottom].join("\n");
 }
