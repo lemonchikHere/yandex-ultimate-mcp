@@ -20,9 +20,10 @@ export const AUTH_GUIDE_RU = `
 Красивый путь без копания в ссылках:
 1. Запусти: npm run auth
 2. Wizard сам откроет создание OAuth app.
-3. В OAuth app добавь Redirect URI, который покажет wizard: http://127.0.0.1:17893/callback
-4. Включи permissions для Metrika, Direct, Webmaster, Tracker.
-5. Вставь ClientID — wizard спросит, добавлен ли localhost Redirect URI.
+3. В OAuth app выбери тип «Веб-сервисы».
+4. Redirect URI: для auto-capture добавь URI из wizard; для ручного fallback можно https://ya.ru.
+5. В «Доступ к данным» для Webmaster напиши webmaster и выбери все 3 элемента.
+6. Вставь ClientID — wizard спросит, добавлен ли localhost Redirect URI.
 6. Если да — token поймается локально. Если нет — wizard откроет обычную авторизацию и попросит вставить callback URL.
 
 Важно:
@@ -38,9 +39,10 @@ export const AUTH_GUIDE_EN = `
 Smooth path:
 1. Run: npm run auth
 2. The wizard opens Yandex OAuth app creation.
-3. Add the local Redirect URI shown by the wizard, e.g. http://127.0.0.1:17893/callback
-4. Enable Metrika, Direct, Webmaster and Tracker permissions.
-5. Paste ClientID; the wizard asks whether the localhost Redirect URI was added.
+3. Choose the Web services app type.
+4. Redirect URI: add the wizard localhost URI for auto-capture, or use https://ya.ru for manual fallback.
+5. For Webmaster data access, search webmaster and select all 3 scopes.
+6. Paste ClientID; the wizard asks whether the localhost Redirect URI was added.
 6. If yes, the local callback captures access_token. If not, the wizard opens regular authorization and asks you to paste the callback URL.
 
 Note: YANDEX_CLIENT_LOGIN is not a token; it is a Yandex Direct client/account login.
@@ -56,7 +58,7 @@ function serviceHints(service?: string): string {
     metrika: "Env: YANDEX_METRIKA_TOKEN or universal YANDEX_TOKEN.",
     direct: "Env: YANDEX_DIRECT_TOKEN or YANDEX_TOKEN. YANDEX_CLIENT_LOGIN is the Direct client/account login, not a token.",
     wordstat: "Wordstat is usually covered by Direct credentials in @stegyan/yandex-mcp.",
-    webmaster: "Env: YANDEX_WEBMASTER_OAUTH_TOKEN; usually the same OAuth token as YANDEX_TOKEN.",
+    webmaster: "Env: YANDEX_WEBMASTER_TOKEN or YANDEX_WEBMASTER_OAUTH_TOKEN. In OAuth app data access search for `webmaster` and select all 3 scopes.",
     tracker: "Env: YANDEX_TRACKER_TOKEN and YANDEX_TRACKER_ORG_ID.",
     cloud: "Env: YC_OAUTH_TOKEN/YC_FOLDER_ID or YANDEX_CLOUD_TOKEN/YANDEX_FOLDER_ID.",
     search: "Cloud Search MCP: YANDEX_SEARCH_API_KEY and YANDEX_FOLDER_ID. Site Search is separate: developer.tech key + site.yandex.ru search.",
@@ -74,8 +76,10 @@ export async function runAuthWizard(): Promise<void> {
   try {
     await openStep("1/5 Создай OAuth app", OAUTH_APP_URL, [
       `Название: Yandex Ultimate MCP`,
-      `Redirect URI / Callback URL: ${capture.redirectUri}`,
-      "Permissions: Metrika + Direct + Webmaster + Tracker, что доступно в твоем аккаунте."
+      `Redirect URI / Callback URL: ${capture.redirectUri} или https://ya.ru для ручного fallback`,
+      "Тип приложения: Веб-сервисы.",
+      "Доступ к данным: для Webmaster введи `webmaster` и выбери все 3 найденных элемента.",
+      "Также включи Metrika / Direct / Tracker, если они нужны."
     ]);
 
     const clientId = (await ask(rl, "🔑 Вставь Yandex OAuth ClientID", "после создания app скопируй ClientID сюда")).trim();
@@ -419,7 +423,9 @@ function openExternal(url: string): Promise<boolean> {
 function printHero(redirectUri: string): void {
   console.log(box("🚀 Yandex Ultimate MCP — красивый auth wizard", [
     "Без скрейпа логина/пароля: открываем официальные страницы и ловим redirect локально.",
-    `Redirect URI для OAuth app: ${redirectUri}`,
+    `Redirect URI для auto-capture: ${redirectUri}`,
+    "Для ручного fallback можно указать Redirect URI: https://ya.ru",
+    "Webmaster scopes: в `Доступ к данным` напиши webmaster и выбери все 3 элемента.",
     "YANDEX_CLIENT_LOGIN — это логин Direct, а не токен.",
     "Секреты пишем в .env.local, в git они не попадут."
   ]));

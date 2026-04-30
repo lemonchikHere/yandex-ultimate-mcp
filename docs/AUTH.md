@@ -100,6 +100,21 @@ YANDEX_WEBMASTER_OAUTH_TOKEN=тот_же_access_token
 YANDEX_WEBMASTER_HOST_URL=https://example.com
 ```
 
+## Webmaster token / WEBMASTER_TOKEN
+
+Чтобы получить токен для API Яндекс.Вебмастера:
+
+1. Перейди на страницу создания OAuth-приложения: https://oauth.yandex.ru/client/new
+2. Придумай название сервиса.
+3. Выбери тип приложения **Веб-сервисы**.
+4. В поле **Redirect URI** укажи любой адрес для ручного режима, например `https://ya.ru`, или localhost URI из wizard для auto-capture.
+5. В поле **Доступ к данным** напиши `webmaster`.
+6. В появившемся списке выбери **все 3 элемента**.
+7. Нажми **Создать приложение**.
+8. Скопируй `ClientID`, запусти `npm run auth`, получи OAuth token и сохрани его в `YANDEX_WEBMASTER_TOKEN`.
+
+Если API отвечает `403 ACCESS_FORBIDDEN` / `application scopes: []`, token создан без Webmaster scopes — перевыпусти его после выбора доступов `webmaster`.
+
 ## Tracker
 
 ENV:

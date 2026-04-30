@@ -156,6 +156,21 @@ npx yandex-ultimate-mcp@latest auth
 
 Wizard сам открывает страницы, ловит OAuth callback на localhost, вытаскивает `access_token` и пишет `.env.local`. Подробности: [`docs/AUTH.md`](docs/AUTH.md).
 
+## Webmaster token / WEBMASTER_TOKEN
+
+Для Яндекс.Вебмастера OAuth app лучше заводить так:
+
+1. Открой создание OAuth-приложения: https://oauth.yandex.ru/client/new
+2. Название любое, например `Yandex Ultimate MCP`.
+3. Тип приложения: **Веб-сервисы**.
+4. Redirect URI можно указать `https://ya.ru` для ручного режима или localhost URI из wizard для auto-capture.
+5. В поле **Доступ к данным** напиши `webmaster`.
+6. В появившемся списке выбери **все 3 элемента** Webmaster.
+7. Создай приложение, скопируй `ClientID`, запусти `npm run auth` и получи новый token.
+8. Wizard сохранит его как `YANDEX_WEBMASTER_TOKEN` и `YANDEX_WEBMASTER_OAUTH_TOKEN`.
+
+Если `get-user` возвращает `403 ACCESS_FORBIDDEN` и `application scopes: []`, значит token выпущен без Webmaster scopes — нужно перевыпустить token после выбора этих доступов.
+
 ## Yandex Search vs Поиск для сайта
 
 Внутри gateway сейчас подключен `yandex-search-mcp` — это **Yandex Cloud Search API**. Для него нужны:
