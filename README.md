@@ -39,7 +39,7 @@ npx yandex-ultimate-mcp@latest doctor
 Для разработки из репозитория:
 
 ```bash
-git clone https://github.com/YOUR_ORG/yandex-ultimate-mcp.git
+git clone https://github.com/lemonchikHere/yandex-ultimate-mcp.git
 cd yandex-ultimate-mcp
 npm install
 cp .env.example .env.local
