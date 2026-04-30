@@ -26,7 +26,7 @@ http://127.0.0.1:17893/callback
    - если **нет** или OAuth app уже использует другой callback — открывает authorize URL **без** `redirect_uri`, а ты вставляешь итоговый callback URL из адресной строки.
 6. Если видишь `400 redirect_uri не совпадает`, значит в app не добавлен localhost callback: перезапусти wizard и ответь **нет** на вопрос про Redirect URI, либо добавь точный URI в настройках OAuth app.
 
-Token раскладывается по `YANDEX_TOKEN`, `YANDEX_METRIKA_TOKEN`, `YANDEX_DIRECT_TOKEN`, `YANDEX_WEBMASTER_OAUTH_TOKEN`, `YANDEX_TRACKER_TOKEN`.
+Token раскладывается по `YANDEX_TOKEN`, `YANDEX_METRIKA_TOKEN`, `YANDEX_DIRECT_TOKEN`, `YANDEX_WEBMASTER_TOKEN` / `YANDEX_WEBMASTER_OAUTH_TOKEN`, `YANDEX_TRACKER_TOKEN`.
 
 `YANDEX_CLIENT_LOGIN` — это **не токен**, а логин клиента/аккаунта в Yandex Direct.
 
@@ -94,6 +94,7 @@ YANDEX_TOKEN=...
 ENV:
 
 ```bash
+YANDEX_WEBMASTER_TOKEN=тот_же_access_token
 YANDEX_WEBMASTER_OAUTH_TOKEN=тот_же_access_token
 # опционально, чтобы ограничить конкретный host
 YANDEX_WEBMASTER_HOST_URL=https://example.com

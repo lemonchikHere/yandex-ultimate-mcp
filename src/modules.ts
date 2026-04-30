@@ -66,6 +66,7 @@ export const MODULES: ModuleDefinition[] = [
     sourceUrl: "https://github.com/altrr2/yandex-tools-mcp",
     categories: ["webmaster", "seo", "indexing"],
     env: (env: EnvMap) => withPairs(env, {
+      YANDEX_WEBMASTER_TOKEN: pick(env, ["YANDEX_WEBMASTER_TOKEN", "YANDEX_WEBMASTER_OAUTH_TOKEN", "YANDEX_TOKEN"]),
       YANDEX_WEBMASTER_OAUTH_TOKEN: pick(env, ["YANDEX_WEBMASTER_OAUTH_TOKEN", "YANDEX_WEBMASTER_TOKEN", "YANDEX_TOKEN"]),
       YANDEX_WEBMASTER_HOST_URL: pick(env, ["YANDEX_WEBMASTER_HOST_URL"])
     })

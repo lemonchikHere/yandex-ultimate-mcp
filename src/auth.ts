@@ -179,6 +179,7 @@ async function saveOAuthToken(rl: ReturnType<typeof createInterface>, entries: R
     entries.YANDEX_TOKEN = token;
     entries.YANDEX_METRIKA_TOKEN = token;
     entries.YANDEX_DIRECT_TOKEN = token;
+    entries.YANDEX_WEBMASTER_TOKEN = token;
     entries.YANDEX_WEBMASTER_OAUTH_TOKEN = token;
     entries.YANDEX_TRACKER_TOKEN = token;
   } else {

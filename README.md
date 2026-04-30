@@ -40,7 +40,7 @@ Wizard теперь работает как маршрут, а не как “д
    - `YANDEX_TOKEN`
    - `YANDEX_METRIKA_TOKEN`
    - `YANDEX_DIRECT_TOKEN`
-   - `YANDEX_WEBMASTER_OAUTH_TOKEN`
+   - `YANDEX_WEBMASTER_TOKEN` / `YANDEX_WEBMASTER_OAUTH_TOKEN`
    - `YANDEX_TRACKER_TOKEN`
 8. Потом wizard сам открывает/подсказывает страницы для Direct, Cloud/Search и Maps keys.
 
@@ -118,6 +118,7 @@ npm run doctor
       "env": {
         "YANDEX_TOKEN": "...",
         "YANDEX_CLIENT_LOGIN": "...",
+        "YANDEX_WEBMASTER_TOKEN": "...",
         "YANDEX_WEBMASTER_OAUTH_TOKEN": "...",
         "YANDEX_TRACKER_TOKEN": "...",
         "YANDEX_TRACKER_ORG_ID": "...",
