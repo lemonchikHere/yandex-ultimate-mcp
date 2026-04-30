@@ -11,6 +11,8 @@ const OAUTH_APP_URL = "https://oauth.yandex.ru/client/new";
 const DIRECT_API_URL = "https://yandex.ru/dev/direct/doc/en/concepts/register";
 const CLOUD_CONSOLE_URL = "https://console.yandex.cloud/";
 const MAPS_KEYS_URL = "https://developer.tech.yandex.ru/services/";
+const SITE_SEARCH_ACCESS_URL = "https://yandex.ru/dev/site/doc/ru/concepts/access";
+const SITE_SEARCH_MY_SEARCHES_URL = "https://site.yandex.ru/";
 
 export const AUTH_GUIDE_RU = `
 # 🚀 Автовход и получение ключей/токенов для Yandex Ultimate MCP
@@ -57,7 +59,7 @@ function serviceHints(service?: string): string {
     webmaster: "Env: YANDEX_WEBMASTER_OAUTH_TOKEN; usually the same OAuth token as YANDEX_TOKEN.",
     tracker: "Env: YANDEX_TRACKER_TOKEN and YANDEX_TRACKER_ORG_ID.",
     cloud: "Env: YC_OAUTH_TOKEN/YC_FOLDER_ID or YANDEX_CLOUD_TOKEN/YANDEX_FOLDER_ID.",
-    search: "Env: YANDEX_SEARCH_API_KEY and YANDEX_SEARCH_FOLDER_ID.",
+    search: "Cloud Search MCP: YANDEX_SEARCH_API_KEY and YANDEX_FOLDER_ID. Site Search is separate: developer.tech key + site.yandex.ru search.",
     maps: "Env: YANDEX_MAPS_API_KEY; optional YANDEX_MAPS_STATIC_API_KEY."
   };
   if (!service) return Object.entries(hints).map(([key, value]) => `- ${key}: ${value}`).join("\n");
@@ -121,16 +123,26 @@ export async function runAuthWizard(): Promise<void> {
 
     console.log(box("4/5 Tracker / Cloud / Search", [
       "Tracker просит org id.",
-      "Cloud/Search обычно живут в Yandex Cloud console.",
+      "Включенный yandex-search-mcp = Yandex Cloud Search API.",
+      "Поиск для сайта — отдельный продукт: developer.tech key + site.yandex.ru.",
       "Если не используешь — Enter на полях ниже."
     ]));
     await openMaybe("☁️  Открываю Yandex Cloud console", CLOUD_CONSOLE_URL);
     await askAndSave(rl, entries, "🏢 YANDEX_TRACKER_ORG_ID", "org/cloud id для Tracker", "YANDEX_TRACKER_ORG_ID");
     await askAndSave(rl, entries, "☁️  YC_OAUTH_TOKEN", "Cloud OAuth token, если отличается от общего", "YC_OAUTH_TOKEN");
-    await askAndSave(rl, entries, "📁 YC_FOLDER_ID", "folder id для Cloud/Search", "YC_FOLDER_ID");
-    await askAndSave(rl, entries, "🔎 YANDEX_SEARCH_API_KEY", "API key service account для Search API", "YANDEX_SEARCH_API_KEY");
-    await askAndSave(rl, entries, "🔎 YANDEX_SEARCH_FOLDER_ID", "folder id для Search API; можно Enter, если равен YC_FOLDER_ID", "YANDEX_SEARCH_FOLDER_ID");
-    if (!entries.YANDEX_SEARCH_FOLDER_ID && entries.YC_FOLDER_ID) entries.YANDEX_SEARCH_FOLDER_ID = entries.YC_FOLDER_ID;
+    await askAndSave(rl, entries, "📁 YC_FOLDER_ID", "folder id для Cloud; может использоваться и для Cloud Search", "YC_FOLDER_ID");
+    await askAndSave(rl, entries, "🔎 YANDEX_SEARCH_API_KEY", "API key service account для Yandex Cloud Search API", "YANDEX_SEARCH_API_KEY");
+    await askAndSave(rl, entries, "🔎 YANDEX_FOLDER_ID", "folder id для yandex-search-mcp; Enter = использовать YC_FOLDER_ID", "YANDEX_FOLDER_ID");
+    if (!entries.YANDEX_FOLDER_ID && entries.YC_FOLDER_ID) entries.YANDEX_FOLDER_ID = entries.YC_FOLDER_ID;
+    if (!entries.YANDEX_SEARCH_FOLDER_ID && entries.YANDEX_FOLDER_ID) entries.YANDEX_SEARCH_FOLDER_ID = entries.YANDEX_FOLDER_ID;
+
+    console.log(box("4b/5 Поиск для сайта — справочно", [
+      "Твой линк относится к API Яндекс.Поиска для сайта, это не Cloud Search MCP.",
+      "Нужен key в Кабинете разработчика и подключение key к конкретному поиску на site.yandex.ru.",
+      "Пока это не отдельный включенный MCP-модуль, но wizard открывает правильный маршрут."
+    ]));
+    await openMaybe("🔎 Документация Поиска для сайта", SITE_SEARCH_ACCESS_URL);
+    await openMaybe("🔎 Мои поиски site.yandex.ru", SITE_SEARCH_MY_SEARCHES_URL);
 
     console.log(box("5/5 Maps", [
       "Для Maps нужен API key из developer.tech.yandex.ru.",

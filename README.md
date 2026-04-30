@@ -52,7 +52,8 @@ Webmaster обычно использует тот же OAuth token. Если в
 
 - `YANDEX_TRACKER_ORG_ID` — id организации Tracker;
 - `YC_FOLDER_ID` / `YC_OAUTH_TOKEN` — Yandex Cloud;
-- `YANDEX_SEARCH_API_KEY` / `YANDEX_SEARCH_FOLDER_ID` — Search API;
+- `YANDEX_SEARCH_API_KEY` / `YANDEX_FOLDER_ID` — Yandex Cloud Search API для текущего MCP;
+- Поиск для сайта — отдельный маршрут: ключ в `developer.tech.yandex.ru` + подключение к поиску на `site.yandex.ru`;
 - `YANDEX_MAPS_API_KEY` — Maps.
 
 > ⚠️ Если токен случайно попал в чат, логи или скриншот — лучше отозвать его и выпустить новый.
@@ -72,7 +73,7 @@ ULTIMATE_NO_OPEN=1 npm run auth
 | `tracker` | Tracker issues/queues/comments/worklogs/users | ~21 | [`yandex-tracker-mcp`](https://www.npmjs.com/package/yandex-tracker-mcp) |
 | `cloud` | Cloud: Compute, VPC, Storage, PostgreSQL, AI, K8s, Serverless, Security | ~31 | [`yandex-cloud-mcp`](https://www.npmjs.com/package/yandex-cloud-mcp) |
 | `maps` | Geocode, reverse geocode, organizations, routes, static maps | ~10 | [`@theyahia/yandex-maps-mcp`](https://www.npmjs.com/package/@theyahia/yandex-maps-mcp) |
-| `search` | Yandex Search bridge | ~1 | [`yandex-search-mcp`](https://www.npmjs.com/package/yandex-search-mcp) |
+| `search` | Yandex Cloud Search API bridge (`YANDEX_SEARCH_API_KEY` + `YANDEX_FOLDER_ID`) | ~1 | [`yandex-search-mcp`](https://www.npmjs.com/package/yandex-search-mcp) |
 | `cloud_docs` | Поиск/чтение документации Yandex Cloud (optional, off by default) | ~11 | [`@doctorai/yandex-cloud-docs-mcp-server`](https://www.npmjs.com/package/@doctorai/yandex-cloud-docs-mcp-server) |
 
 Плюшки:
@@ -122,7 +123,7 @@ npm run doctor
         "YANDEX_TRACKER_ORG_ID": "...",
         "YC_FOLDER_ID": "...",
         "YANDEX_SEARCH_API_KEY": "...",
-        "YANDEX_SEARCH_FOLDER_ID": "...",
+        "YANDEX_FOLDER_ID": "...",
         "YANDEX_MAPS_API_KEY": "..."
       }
     }
@@ -153,6 +154,27 @@ npx yandex-ultimate-mcp@latest auth
 ```
 
 Wizard сам открывает страницы, ловит OAuth callback на localhost, вытаскивает `access_token` и пишет `.env.local`. Подробности: [`docs/AUTH.md`](docs/AUTH.md).
+
+## Yandex Search vs Поиск для сайта
+
+Внутри gateway сейчас подключен `yandex-search-mcp` — это **Yandex Cloud Search API**. Для него нужны:
+
+```env
+YANDEX_SEARCH_API_KEY=...
+YANDEX_FOLDER_ID=...
+```
+
+Документация, которую ты нашел — это **Яндекс.Поиск для сайта**: https://yandex.ru/dev/site/doc/ru/concepts/access
+
+Там другой путь:
+
+1. Получить ключ в Кабинете разработчика: https://developer.tech.yandex.ru/services/
+2. Выбрать сервис `API Яндекс.Поиска для сайта`.
+3. Открыть `Мои поиски`: https://site.yandex.ru/
+4. В выбранном поиске на странице `Выдача в JSON` вставить API-ключ.
+5. Подождать до часа, пока изменения вступят в силу.
+
+Важно: один ключ Поиска для сайта подключается только к одному поиску.
 
 ## Управление модулями
 

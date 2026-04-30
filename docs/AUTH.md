@@ -120,12 +120,30 @@ YC_CLOUD_ID=...
 YC_FOLDER_ID=...
 ```
 
-ENV для Search MCP:
+ENV для Search MCP (`yandex-search-mcp`) — это Yandex Cloud Search API:
 
 ```bash
 YANDEX_SEARCH_API_KEY=...
+YANDEX_FOLDER_ID=...
+# alias, можно не заполнять если есть YANDEX_FOLDER_ID
 YANDEX_SEARCH_FOLDER_ID=...
 ```
+
+### Яндекс.Поиск для сайта
+
+Это отдельный продукт, не то же самое что Cloud Search MCP. Документация: https://yandex.ru/dev/site/doc/ru/concepts/access
+
+Маршрут:
+
+1. Открой Кабинет разработчика: https://developer.tech.yandex.ru/services/
+2. Нажми `Получить ключ`.
+3. В поле `Сервис для подключения` выбери `API Яндекс.Поиска для сайта`.
+4. Открой `Мои поиски`: https://site.yandex.ru/
+5. Выбери поиск или создай новый.
+6. На странице `Выдача в JSON` вставь API-ключ и сохрани.
+7. Подожди до часа — изменения вступают в силу не мгновенно.
+
+Ограничение из документации: один ключ Поиска для сайта можно подключить только к одному поиску.
 
 ## Maps
 

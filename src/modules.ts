@@ -141,13 +141,14 @@ export const MODULES: ModuleDefinition[] = [
   {
     id: "search",
     title: "Yandex Search",
-    description: "Search API MCP from altrr2/yandex-tools-mcp; small but useful web-search bridge.",
+    description: "Yandex Cloud Search API MCP from altrr2/yandex-tools-mcp; web-search bridge (not Site Search).",
     command: "npx",
     args: ["-y", "yandex-search-mcp@latest"],
     priority: 60,
     expectedTools: 1,
     requiredEnv: [
-      { label: "Search credentials", allOf: ["YANDEX_SEARCH_API_KEY", "YANDEX_SEARCH_FOLDER_ID"] }
+      { label: "Search API key", anyOf: ["YANDEX_SEARCH_API_KEY"] },
+      { label: "Search folder id", anyOf: ["YANDEX_FOLDER_ID", "YANDEX_SEARCH_FOLDER_ID", "YC_FOLDER_ID"] }
     ],
     docsUrl: "https://github.com/altrr2/yandex-tools-mcp/tree/main/packages/yandex-search-mcp",
     packageName: "yandex-search-mcp",
@@ -156,7 +157,8 @@ export const MODULES: ModuleDefinition[] = [
     categories: ["search", "web"],
     env: (env: EnvMap) => withPairs(env, {
       YANDEX_SEARCH_API_KEY: pick(env, ["YANDEX_SEARCH_API_KEY"]),
-      YANDEX_SEARCH_FOLDER_ID: pick(env, ["YANDEX_SEARCH_FOLDER_ID", "YC_FOLDER_ID", "YANDEX_FOLDER_ID"])
+      YANDEX_SEARCH_FOLDER_ID: pick(env, ["YANDEX_SEARCH_FOLDER_ID", "YANDEX_FOLDER_ID", "YC_FOLDER_ID"]),
+      YANDEX_FOLDER_ID: pick(env, ["YANDEX_FOLDER_ID", "YANDEX_SEARCH_FOLDER_ID", "YC_FOLDER_ID"])
     })
   },
   {
