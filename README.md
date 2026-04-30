@@ -12,6 +12,42 @@
 
 **Yandex Ultimate MCP** — неофициальный “ультимативный” MCP-gateway для Яндекс-экосистемы. Он не копирует код чужих серверов: запускает лучшие найденные open-source MCP как дочерние процессы, собирает их tools в один интерфейс, добавляет `doctor`, `auth`-wizard, статусы, нормальные ENV-подсказки и безопасные notices по лицензиям.
 
+## 🚀 Автовход и получение ключей/токенов
+
+Самый быстрый сценарий:
+
+```bash
+cd /Users/vlad/yandex-ultimate-mcp
+npm run auth
+npm run doctor
+npm run start
+```
+
+Что делает wizard:
+
+1. Просит `YANDEX_CLIENT_ID` от OAuth app.
+2. Дает ссылку `https://oauth.yandex.ru/authorize?...`.
+3. Ты логинишься и вставляешь **весь callback URL** с `#access_token=...`.
+4. Wizard сам вытаскивает token и раскладывает его в:
+   - `YANDEX_TOKEN`
+   - `YANDEX_METRIKA_TOKEN`
+   - `YANDEX_DIRECT_TOKEN`
+   - `YANDEX_WEBMASTER_OAUTH_TOKEN`
+   - `YANDEX_TRACKER_TOKEN`
+
+Важно: `YANDEX_CLIENT_LOGIN` — это **не токен**. Это логин клиента/аккаунта в Yandex Direct. Если Direct не нужен — пропусти.
+
+Webmaster обычно использует тот же OAuth token. Если в OAuth app нет Webmaster permissions или API-доступ ограничен аккаунтом, `doctor` покажет, что модуль не включился.
+
+Отдельно добираются:
+
+- `YANDEX_TRACKER_ORG_ID` — id организации Tracker;
+- `YC_FOLDER_ID` / `YC_OAUTH_TOKEN` — Yandex Cloud;
+- `YANDEX_SEARCH_API_KEY` / `YANDEX_SEARCH_FOLDER_ID` — Search API;
+- `YANDEX_MAPS_API_KEY` — Maps.
+
+> ⚠️ Если токен случайно попал в чат, логи или скриншот — лучше отозвать его и выпустить новый.
+
 ## Что внутри
 
 | Модуль | Что дает | Ожидаемо tools | Источник |
@@ -101,7 +137,7 @@ yandex-ultimate auth
 npx yandex-ultimate-mcp@latest auth
 ```
 
-Wizard покажет OAuth URL и поможет записать значения в `.env.local`. Подробности: [`docs/AUTH.md`](docs/AUTH.md).
+Wizard принимает полный callback URL, сам вытаскивает `access_token` и пишет `.env.local`. Подробности: [`docs/AUTH.md`](docs/AUTH.md).
 
 ## Управление модулями
 

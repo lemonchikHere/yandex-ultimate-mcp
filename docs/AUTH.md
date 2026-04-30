@@ -1,6 +1,26 @@
-# Auth / токены для Yandex Ultimate MCP
+# 🚀 Автовход и получение ключей/токенов
 
 > Основной язык — русский. English notes are included at the end.
+
+## TL;DR
+
+```bash
+npm run auth
+npm run doctor
+npm run start
+```
+
+Wizard можно кормить не чистым токеном, а всем callback URL:
+
+```text
+https://your-app/callback#access_token=...&token_type=bearer&expires_in=...
+```
+
+Он сам достанет `access_token` и предложит разложить его по `YANDEX_TOKEN`, `YANDEX_METRIKA_TOKEN`, `YANDEX_DIRECT_TOKEN`, `YANDEX_WEBMASTER_OAUTH_TOKEN`, `YANDEX_TRACKER_TOKEN`.
+
+`YANDEX_CLIENT_LOGIN` — это **не токен**, а логин клиента/аккаунта в Yandex Direct.
+
+> ⚠️ Если token утек в чат/логи — отзови его и выпусти новый.
 
 ## Главная идея
 
@@ -53,10 +73,12 @@ YANDEX_TOKEN=...
 
 Официальная инструкция OAuth: https://yandex.ru/dev/webmaster/doc/en/tasks/how-to-get-oauth
 
+Обычно отдельный токен не нужен: используй тот же OAuth token, если OAuth app имеет Webmaster permissions.
+
 ENV:
 
 ```bash
-YANDEX_WEBMASTER_OAUTH_TOKEN=...
+YANDEX_WEBMASTER_OAUTH_TOKEN=тот_же_access_token
 # опционально, чтобы ограничить конкретный host
 YANDEX_WEBMASTER_HOST_URL=https://example.com
 ```
