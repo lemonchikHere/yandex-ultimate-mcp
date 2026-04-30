@@ -12,7 +12,8 @@
     "modules": "node dist/src/cli.js modules",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "test": "npm run smoke",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high",
+    "prepare": "npm run build"
   },
   "keywords": [
     "mcp",

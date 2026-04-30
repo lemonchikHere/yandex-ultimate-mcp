@@ -2,7 +2,13 @@
 
 > 🇷🇺 **Основной язык — русский.** English quick start is below.
 
-![Yandex Ultimate MCP hero](assets/yandex-ultimate-hero.svg)
+![Yandex Ultimate MCP hero](assets/yandex-ultimate-cover.png)
+
+<details><summary>SVG fallback</summary>
+
+![Yandex Ultimate MCP SVG hero](assets/yandex-ultimate-hero.svg)
+
+</details>
 
 **Yandex Ultimate MCP** — неофициальный “ультимативный” MCP-gateway для Яндекс-экосистемы. Он не копирует код чужих серверов: запускает лучшие найденные open-source MCP как дочерние процессы, собирает их tools в один интерфейс, добавляет `doctor`, `auth`-wizard, статусы, нормальные ENV-подсказки и безопасные notices по лицензиям.
 
