@@ -2,9 +2,17 @@ import { spawn } from "node:child_process";
 import { getModuleStatuses, MODULES } from "./modules.js";
 import type { ModuleStatus } from "./types.js";
 
+type LiveCheck = {
+  id: string;
+  ok: boolean;
+  skipped?: boolean;
+  message: string;
+};
+
 export async function runDoctor(): Promise<number> {
   const statuses = getModuleStatuses(process.env);
   const bins = await checkBinaries(["node", "npx"]);
+  const liveChecks = await runLiveChecks();
 
   console.log("Yandex Ultimate MCP doctor\n");
   for (const [bin, ok] of Object.entries(bins)) {
@@ -14,10 +22,20 @@ export async function runDoctor(): Promise<number> {
 
   for (const status of statuses) printStatus(status);
 
+  if (liveChecks.length) {
+    console.log("\nLive API checks:");
+    for (const check of liveChecks) {
+      const mark = check.skipped ? "•" : check.ok ? "✓" : "✗";
+      console.log(`${mark} ${check.id}: ${check.message}`);
+    }
+  }
+
   const enabledCount = statuses.filter((s) => s.enabled).length;
   const configuredCount = statuses.filter((s) => s.configured).length;
+  const failedLiveChecks = liveChecks.filter((check) => !check.skipped && !check.ok).length;
   console.log(`\nConfigured modules: ${configuredCount}/${statuses.length}. Enabled now: ${enabledCount}/${statuses.length}.`);
-  console.log("Run `yandex-ultimate auth` or read docs/AUTH.md to add tokens/API keys.");
+  console.log("Run `npm run auth` or read docs/AUTH.md to add tokens/API keys.");
+  if (failedLiveChecks) return 1;
   return enabledCount > 0 || process.env.ULTIMATE_DISABLE_CHILDREN === "1" ? 0 : 1;
 }
 
@@ -32,6 +50,75 @@ export function makeStatusReport(extra?: { runtime?: unknown; listErrors?: unkno
     ...extra
   };
   return JSON.stringify(payload, null, 2);
+}
+
+async function runLiveChecks(): Promise<LiveCheck[]> {
+  if (["0", "false", "off", "no"].includes((process.env.ULTIMATE_DOCTOR_LIVE ?? "").toLowerCase())) return [];
+  return [await checkWebmasterToken()];
+}
+
+async function checkWebmasterToken(): Promise<LiveCheck> {
+  const token = pickEnv(["YANDEX_WEBMASTER_TOKEN", "YANDEX_WEBMASTER_OAUTH_TOKEN", "YANDEX_TOKEN"]);
+  if (!token) {
+    return { id: "webmaster-token", ok: false, skipped: true, message: "skipped, no YANDEX_WEBMASTER_TOKEN / YANDEX_WEBMASTER_OAUTH_TOKEN / YANDEX_TOKEN" };
+  }
+
+  try {
+    const response = await fetch("https://api.webmaster.yandex.net/v4/user", {
+      headers: { Authorization: `OAuth ${token}` },
+      signal: AbortSignal.timeout(15_000)
+    });
+    const text = await response.text();
+
+    if (response.ok) {
+      const parsed = safeJson(text);
+      const hasUserId = Boolean(parsed && typeof parsed === "object" && "user_id" in parsed);
+      return {
+        id: "webmaster-token",
+        ok: true,
+        message: hasUserId ? "valid: /v4/user returned user_id" : "valid: /v4/user returned 2xx"
+      };
+    }
+
+    return {
+      id: "webmaster-token",
+      ok: false,
+      message: `invalid: HTTP ${response.status} ${summarizeWebmasterError(text)}`
+    };
+  } catch (error) {
+    return {
+      id: "webmaster-token",
+      ok: false,
+      message: `check failed: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}
+
+function summarizeWebmasterError(text: string): string {
+  const parsed = safeJson(text);
+  if (parsed && typeof parsed === "object") {
+    const record = parsed as Record<string, unknown>;
+    const code = typeof record.error_code === "string" ? record.error_code : undefined;
+    const message = typeof record.error_message === "string" ? record.error_message : undefined;
+    if (code || message) return [code, message].filter(Boolean).join(" — ");
+  }
+  return text.slice(0, 300).replace(/[A-Za-z0-9_-]{28,}/g, "[REDACTED_LONG]");
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function pickEnv(keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value?.trim()) return value.trim();
+  }
+  return undefined;
 }
 
 function printStatus(status: ModuleStatus): void {
